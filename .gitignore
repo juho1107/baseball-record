@@ -8,3 +8,6 @@ out
 *.log
 node-*.zip
 .DS_Store
+
+.vercel
+.env*
