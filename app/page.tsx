@@ -42,6 +42,11 @@ export default function Dashboard() {
 
       <section className="coming"><span><CircleDot size={22} /></span><div><b>실제 팀 기록만 제공</b><p>썬볼과 레드포니즈의 게임원·유니크플레이 기록, 썬볼의 야구스·나이스캐치 기록을 통합해 표시합니다.</p></div><a className="connect-cta" href="#players"><Link2 size={15} /> 선수 기록 보기</a></section>
     </div>
+    <nav className="mobile-bottom-nav" aria-label="모바일 주요 메뉴">
+      <a href="#dashboard"><CircleDot size={18} /><span>홈</span></a>
+      <a href="#players"><span className="mobile-nav-icon">선</span><span>선수</span></a>
+      <a href="#teams"><span className="mobile-nav-icon">팀</span><span>팀 기록</span></a>
+    </nav>
     <footer><b>DUGOUT</b><span>© 2026 Social Baseball Records</span><span>게임원 · 유니크플레이 · 야구스 · 나이스캐치 통합 기록</span></footer>
   </main>;
 }
