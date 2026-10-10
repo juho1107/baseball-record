@@ -1,0 +1,37 @@
+{
+  "name": "baseball-record-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "sync:uniqueplay": "node scripts/sync-uniqueplay.mjs",
+    "sync:uniqueplay:teams": "node scripts/sync-uniqueplay.mjs 썬볼 레드포니즈",
+    "sync:gameone:teams": "node scripts/sync-gameone.mjs",
+    "sync:yagoos": "node scripts/sync-yagoos.mjs",
+    "sync:gameone:years": "node scripts/sync-gameone-by-year.mjs",
+    "sync:nicecatch": "node scripts/sync-nicecatch.mjs",
+    "sync:latest-games": "node scripts/sync-latest-games.mjs",
+    "sync:uniqueplay:latest": "node scripts/sync-uniqueplay-latest.mjs",
+    "sync:uniqueplay:auto": "node scripts/sync-uniqueplay.mjs 썬볼 레드포니즈 && node scripts/sync-uniqueplay-latest.mjs && node scripts/sync-latest-games.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "next": "^16.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^16.0.0",
+    "playwright-core": "^1.64.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.0"
+  }
+}

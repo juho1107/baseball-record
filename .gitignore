@@ -1,0 +1,10 @@
+node_modules
+.next
+out
+.data/
+.tools/
+.env*
+!.env.example
+*.log
+node-*.zip
+.DS_Store
