@@ -24,6 +24,7 @@ export default function TeamDirectory() {
   const [yagoos, setYagoos] = useState<{ teams: YagoosTeam[] }>({ teams: [] });
   const [nicecatch, setNicecatch] = useState<{ teams: NicecatchTeam[] }>({ teams: [] });
   const [query, setQuery] = useState("");
+  const [listOpen, setListOpen] = useState(false);
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [team, setTeam] = useState("all");
   const [season, setSeason] = useState("career");
@@ -97,14 +98,14 @@ export default function TeamDirectory() {
   ])].sort((a, b) => b - a) : [];
 
   function choose(person: Person) {
-    setSelectedName(person.name); setTeam("all"); setSeason("career"); setSource("combined"); setKind("batting");
+    setSelectedName(person.name); setTeam("all"); setSeason("career"); setSource("combined"); setKind("batting"); setListOpen(false);
   }
 
   return <section className="team-directory records" id="players">
     <div className="section-head"><div><span className="section-kicker">PLAYER DIRECTORY</span><h2>선수 기록 찾기</h2></div><div className="sync"><span /> 4개 서비스 통합<small>게임원 · 유니크플레이 · 야구스 · 나이스캐치</small></div></div>
-    <div className="directory-filters"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="선수 이름 검색" aria-label="선수 이름 검색" /></div>
-    <div className="directory-layout">
-      <div className="directory-list">{people.map((person, index) => <button key={person.name} className={selectedName === person.name ? "selected" : ""} onClick={() => choose(person)}><span className="directory-rank">{index + 1}</span><span className="directory-player"><b>{person.name}</b><small>{person.teams.join(" · ")}</small></span><span className="source-badges">{[...person.sources].map((item) => <i key={item}>{SOURCE_LABEL[item]}</i>)}</span></button>)}{!people.length && <p className="directory-empty">검색 결과가 없습니다.</p>}</div>
+    <div className="directory-filters"><input value={query} onChange={(event) => { const value = event.target.value; setQuery(value); setListOpen(Boolean(value.trim())); }} placeholder="선수 이름 검색" aria-label="선수 이름 검색" /><button type="button" className={listOpen ? "directory-list-toggle open" : "directory-list-toggle"} onClick={() => setListOpen((open) => !open)} aria-expanded={listOpen} aria-controls="directory-player-list"><span>선수 목록</span><small>{allPeople.length}명</small><b aria-hidden="true">⌄</b></button></div>
+    {(listOpen || selected) && <div className={listOpen ? "directory-layout" : "directory-layout list-collapsed"}>
+      {listOpen && <div className="directory-list" id="directory-player-list">{people.map((person, index) => <button key={person.name} className={selectedName === person.name ? "selected" : ""} onClick={() => choose(person)}><span className="directory-rank">{index + 1}</span><span className="directory-player"><b>{person.name}</b><small>{person.teams.join(" · ")}</small></span><span className="source-badges">{[...person.sources].map((item) => <i key={item}>{SOURCE_LABEL[item]}</i>)}</span></button>)}{!people.length && <p className="directory-empty">검색 결과가 없습니다.</p>}</div>}
       <div className={selected ? "directory-detail has-selection" : "directory-detail"}>{selected ? <>
         <button className="detail-close" onClick={() => setSelectedName("")} aria-label="선수 상세 닫기">×</button>
         <span className="detail-kicker">PLAYER RECORD</span><h3>{selected.name}</h3><p>{selected.teams.join(" · ")}</p>
@@ -112,7 +113,7 @@ export default function TeamDirectory() {
         <div className="detail-switches"><div className="directory-toggle">{(["combined", "gameone", "uniqueplay", "yagoos", "nicecatch"] as Source[]).map((item) => <button key={item} className={source === item ? "active" : ""} onClick={() => setSource(item)}>{SOURCE_LABEL[item]}</button>)}</div><div className="directory-toggle"><button className={kind === "batting" ? "active" : ""} onClick={() => setKind("batting")}>타자</button><button className={kind === "pitching" ? "active" : ""} onClick={() => setKind("pitching")}>투수</button></div></div>
         {stats ? <PlayerStats stats={stats} kind={kind} /> : <p className="detail-no-record">선택한 조건에 기록이 없습니다.</p>}
       </> : <div className="detail-placeholder"><b>선수 이름을 선택하세요</b><span>소속 팀과 통산·연도별 기록을 한 화면에서 비교할 수 있습니다.</span></div>}</div>
-    </div>
+    </div>}
   </section>;
 }
 
