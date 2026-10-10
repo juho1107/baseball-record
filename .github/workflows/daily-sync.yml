@@ -1,0 +1,47 @@
+name: Daily baseball record sync
+
+on:
+  schedule:
+    # 23:07 UTC is 08:07 in Asia/Seoul the following day.
+    - cron: "7 23 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: daily-baseball-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      UNIQUEPLAY_LOGIN_ID: ${{ secrets.UNIQUEPLAY_LOGIN_ID }}
+      UNIQUEPLAY_LOGIN_PASSWORD: ${{ secrets.UNIQUEPLAY_LOGIN_PASSWORD }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Download stored snapshots
+        run: node scripts/download-snapshots.mjs
+
+      - name: Sync active record providers
+        run: npm run sync:daily
+

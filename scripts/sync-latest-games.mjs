@@ -86,13 +86,18 @@ async function storedUniquePlay() {
   } catch { return []; }
 }
 
+async function storedInactiveSources() {
+  try {
+    const snapshot = JSON.parse(await readFile(outputFile, "utf8"));
+    return (snapshot.sources ?? []).filter((game) => ["gameone", "yagoos"].includes(game.sourceId));
+  } catch { return []; }
+}
+
 const collected = await Promise.allSettled([
   latestSunball().then((game) => ({ ...game, sourceId: "nicecatch" })),
-  latestYagoos(),
-  latestGameone("4901", "썬볼", "썬볼"),
-  latestGameone("15680", "레드포니즈", "RedPonies"),
 ]);
-const sources = collected.filter((item) => item.status === "fulfilled").map((item) => item.value);
+const sources = await storedInactiveSources();
+sources.push(...collected.filter((item) => item.status === "fulfilled").map((item) => item.value));
 sources.push(...await storedUniquePlay());
 const teams = ["썬볼", "레드포니즈"].map((team) => {
   const candidates = sources.filter((game) => game.team === team).sort((a, b) => Date.parse(b.gameDate) - Date.parse(a.gameDate));

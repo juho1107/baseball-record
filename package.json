@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "db:import": "node --env-file=.env.local scripts/import-snapshots.mjs",
+    "db:download": "node --env-file=.env.local scripts/download-snapshots.mjs",
+    "sync:daily": "node scripts/sync-uniqueplay.mjs 썬볼 레드포니즈 && node scripts/sync-uniqueplay-latest.mjs && node scripts/sync-nicecatch.mjs && node scripts/sync-latest-games.mjs && node scripts/import-snapshots.mjs",
     "sync:uniqueplay": "node scripts/sync-uniqueplay.mjs",
     "sync:uniqueplay:teams": "node scripts/sync-uniqueplay.mjs 썬볼 레드포니즈",
     "sync:gameone:teams": "node scripts/sync-gameone.mjs",
@@ -31,7 +33,7 @@
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.0.0",
-    "playwright-core": "^1.64.0",
+    "playwright": "^1.64.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0"
   }

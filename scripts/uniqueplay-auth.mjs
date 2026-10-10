@@ -1,11 +1,12 @@
-import { chromium } from "playwright-core";
+import { chromium } from "playwright";
 import { loadEnvFile } from "node:process";
+import { existsSync } from "node:fs";
 import path from "node:path";
 
 try { loadEnvFile(path.resolve(".env.local")); } catch {}
 
 const LOGIN_URL = "https://www.unique-play.com/login";
-const EDGE = process.env.UNIQUEPLAY_BROWSER_PATH ?? "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
+const DEFAULT_EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const SESSION_DIR = path.resolve(".data", "uniqueplay-session");
 
 async function accessToken(page, timeout = 2_000) {
@@ -30,8 +31,10 @@ export async function openUniquePlaySession() {
   const email = process.env.UNIQUEPLAY_LOGIN_ID;
   const password = process.env.UNIQUEPLAY_LOGIN_PASSWORD;
   const automatic = Boolean(email && password);
+  const requestedBrowser = process.env.UNIQUEPLAY_BROWSER_PATH;
+  const executablePath = requestedBrowser ?? (existsSync(DEFAULT_EDGE) ? DEFAULT_EDGE : undefined);
   const context = await chromium.launchPersistentContext(SESSION_DIR, {
-    executablePath: EDGE,
+    ...(executablePath ? { executablePath } : {}),
     headless: automatic,
     viewport: { width: 1100, height: 820 },
   });

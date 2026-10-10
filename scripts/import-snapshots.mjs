@@ -17,6 +17,32 @@ const snapshots = [
   ["LATEST_GAMES", "latest-games.json"],
 ];
 
+const headers = {
+  apikey: secretKey,
+  Authorization: `Bearer ${secretKey}`,
+  "Content-Type": "application/json",
+};
+
+function comparable(payload) {
+  const copy = structuredClone(payload);
+  delete copy.fetchedAt;
+  return JSON.stringify(copy);
+}
+
+async function recordRun(source, changed, recordCount) {
+  const response = await fetch(`${apiUrl}/rest/v1/sync_runs`, {
+    method: "POST",
+    headers: { ...headers, Prefer: "return=minimal" },
+    body: JSON.stringify({
+      source,
+      status: "success",
+      completed_at: new Date().toISOString(),
+      details: { changed, recordCount },
+    }),
+  });
+  if (!response.ok) throw new Error(`${source} sync history failed (${response.status})`);
+}
+
 function countRecords(source, payload) {
   if (source === "GAMEONE") {
     return (payload.players ?? []).filter((player) => player.record).length;
@@ -34,16 +60,25 @@ for (const [source, fileName] of snapshots) {
   const filePath = path.resolve(".data", fileName);
   const payload = JSON.parse(await readFile(filePath, "utf8"));
   const recordCount = countRecords(source, payload);
+  const currentResponse = await fetch(
+    `${apiUrl}/rest/v1/source_snapshots?source=eq.${source}&select=payload&limit=1`,
+    { headers },
+  );
+  if (!currentResponse.ok) throw new Error(`${source} comparison failed (${currentResponse.status})`);
+  const currentRows = await currentResponse.json();
+  const changed = !currentRows[0]?.payload || comparable(currentRows[0].payload) !== comparable(payload);
+
+  if (!changed) {
+    await recordRun(source, false, recordCount);
+    console.log(`${source}: unchanged (${recordCount} records)`);
+    continue;
+  }
+
   const response = await fetch(
     `${apiUrl}/rest/v1/source_snapshots?on_conflict=source`,
     {
       method: "POST",
-      headers: {
-        apikey: secretKey,
-        Authorization: `Bearer ${secretKey}`,
-        "Content-Type": "application/json",
-        Prefer: "resolution=merge-duplicates,return=minimal",
-      },
+      headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify({
         source,
         schema_version: payload.schemaVersion ?? 1,
@@ -60,6 +95,6 @@ for (const [source, fileName] of snapshots) {
     throw new Error(`${source} upload failed (${response.status}): ${message}`);
   }
 
+  await recordRun(source, true, recordCount);
   console.log(`${source}: ${recordCount} records uploaded`);
 }
-
