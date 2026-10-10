@@ -42,6 +42,14 @@ function playerName(value) {
   return value.replace(/\s*\(\d+\)\s*$/, "").trim();
 }
 
+function mergeRankingRows(...groups) {
+  const merged = new Map();
+  for (const cells of groups.flat()) {
+    merged.set(playerName(cells[1]), cells);
+  }
+  return [...merged.values()];
+}
+
 async function get(url) {
   const response = await fetch(url, { headers: { "User-Agent": "DUGOUT baseball record sync/1.0", "Accept-Language": "ko-KR,ko;q=0.9" } });
   if (!response.ok) throw new Error(`${url} 요청 실패 (${response.status})`);
@@ -56,13 +64,17 @@ if (!leagueCode || !seasons.length) throw new Error("야구스의 썬볼 시즌/
 
 const players = new Map();
 for (const season of seasons.sort((a, b) => a - b)) {
-  const query = `season=${season}&leaguea=${encodeURIComponent(leagueCode)}&rules=OUT`;
-  const [battingHtml, pitchingHtml] = await Promise.all([
-    get(`${ORIGIN}/getpage/team/${TEAM.code}/record/load?base=player/ranking/b&${query}`),
-    get(`${ORIGIN}/getpage/team/${TEAM.code}/record/load?base=player/ranking/p&${query}`),
+  const query = `season=${season}&leaguea=${encodeURIComponent(leagueCode)}`;
+  const [battingInHtml, battingOutHtml, pitchingInHtml, pitchingOutHtml] = await Promise.all([
+    get(`${ORIGIN}/getpage/team/${TEAM.code}/record/load?base=player/ranking/b&${query}&rules=IN`),
+    get(`${ORIGIN}/getpage/team/${TEAM.code}/record/load?base=player/ranking/b&${query}&rules=OUT`),
+    get(`${ORIGIN}/getpage/team/${TEAM.code}/record/load?base=player/ranking/p&${query}&rules=IN`),
+    get(`${ORIGIN}/getpage/team/${TEAM.code}/record/load?base=player/ranking/p&${query}&rules=OUT`),
   ]);
+  const battingRows = mergeRankingRows(rows(battingInHtml), rows(battingOutHtml));
+  const pitchingRows = mergeRankingRows(rows(pitchingInHtml), rows(pitchingOutHtml));
   const seasonMap = new Map();
-  for (const cells of rows(battingHtml)) {
+  for (const cells of battingRows) {
     const name = playerName(cells[1]);
     const atBats = number(cells[6]);
     const hits = number(cells[7]);
@@ -73,7 +85,7 @@ for (const season of seasons.sort((a, b) => a - b)) {
     };
     seasonMap.set(name, { batting });
   }
-  for (const cells of rows(pitchingHtml)) {
+  for (const cells of pitchingRows) {
     const name = playerName(cells[1]);
     const pitchingOuts = inningsToOuts(cells[5]);
     const pitching = {
@@ -91,7 +103,7 @@ for (const season of seasons.sort((a, b) => a - b)) {
     player.seasonRecords.push({ season, stats });
     players.set(name, player);
   }
-  console.log(`${season}: 타자 ${rows(battingHtml).length}명, 투수 ${rows(pitchingHtml).length}명`);
+  console.log(`${season}: 타자 ${battingRows.length}명, 투수 ${pitchingRows.length}명 (규정 IN/OUT 통합)`);
 }
 
 const snapshot = { schemaVersion: 1, source: "YAGOOS", fetchedAt: new Date().toISOString(), teams: [{ id: TEAM.code, name: TEAM.name, leagueCode, players: [...players.values()] }] };
