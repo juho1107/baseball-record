@@ -1,12 +1,11 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { NextResponse } from "next/server";
+import { getSourceSnapshot } from "../../../lib/source-snapshots";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    const snapshot = JSON.parse(await readFile(path.resolve(".data", "gameone-snapshot.json"), "utf8"));
+    const snapshot = await getSourceSnapshot<Record<string, any>>("GAMEONE", "gameone-snapshot.json");
     const fetchedAt = new Date(snapshot.fetchedAt);
     const nextSyncAt = new Date(fetchedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
     return NextResponse.json({

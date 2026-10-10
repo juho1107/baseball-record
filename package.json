@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "db:import": "node --env-file=.env.local scripts/import-snapshots.mjs",
     "sync:uniqueplay": "node scripts/sync-uniqueplay.mjs",
     "sync:uniqueplay:teams": "node scripts/sync-uniqueplay.mjs 썬볼 레드포니즈",
     "sync:gameone:teams": "node scripts/sync-gameone.mjs",

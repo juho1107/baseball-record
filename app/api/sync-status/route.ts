@@ -1,41 +1,42 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { NextResponse } from "next/server";
+import { getSourceSnapshot } from "../../lib/source-snapshots";
 
 export const runtime = "nodejs";
 
 type Snapshot = { fetchedAt?: string };
-type LatestGames = { teams?: unknown[] };
-
-async function readJson<T>(fileName: string): Promise<T | null> {
-  try {
-    return JSON.parse(await readFile(path.resolve(".data", fileName), "utf8")) as T;
-  } catch {
-    return null;
-  }
-}
+type LatestGame = { team?: string; [key: string]: unknown };
+type LatestGames = { teams?: LatestGame[] };
 
 export async function GET() {
-  const [gameone, uniqueplay, yagoos, nicecatch, latestGames] = await Promise.all([
-    readJson<Snapshot>("gameone-snapshot.json"),
-    readJson<Snapshot>("uniqueplay-snapshot.json"),
-    readJson<Snapshot>("yagoos-snapshot.json"),
-    readJson<Snapshot>("nicecatch-snapshot.json"),
-    readJson<LatestGames>("latest-games.json"),
-  ]);
+  const [gameone, uniqueplay, yagoos, nicecatch, latestGames] =
+    await Promise.all([
+      getSourceSnapshot<Snapshot>("GAMEONE", "gameone-snapshot.json").catch(() => null),
+      getSourceSnapshot<Snapshot>("UNIQUEPLAY", "uniqueplay-snapshot.json").catch(() => null),
+      getSourceSnapshot<Snapshot>("YAGOOS", "yagoos-snapshot.json").catch(() => null),
+      getSourceSnapshot<Snapshot>("NICECATCH", "nicecatch-snapshot.json").catch(() => null),
+      getSourceSnapshot<LatestGames>("LATEST_GAMES", "latest-games.json").catch(() => null),
+    ]);
 
   const newest = (values: Array<string | undefined>) =>
-    values.filter(Boolean).sort((a, b) => Date.parse(b!) - Date.parse(a!))[0] ?? null;
+    values
+      .filter((value): value is string => Boolean(value))
+      .sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
 
-  const syncedAt = {
-    "썬볼": newest([gameone?.fetchedAt, uniqueplay?.fetchedAt, yagoos?.fetchedAt, nicecatch?.fetchedAt]),
-    "레드포니즈": newest([gameone?.fetchedAt, uniqueplay?.fetchedAt]),
+  const syncedAt: Record<string, string | null> = {
+    썬볼: newest([
+      gameone?.fetchedAt,
+      uniqueplay?.fetchedAt,
+      yagoos?.fetchedAt,
+      nicecatch?.fetchedAt,
+    ]),
+    레드포니즈: newest([gameone?.fetchedAt, uniqueplay?.fetchedAt]),
   };
 
-  const teams = (latestGames?.teams ?? []).map((team) => {
-    const value = team as { team?: string };
-    return { ...value, syncedAt: syncedAt[value.team as keyof typeof syncedAt] ?? null };
-  });
+  const teams = (latestGames?.teams ?? []).map((team) => ({
+    ...team,
+    syncedAt: syncedAt[team.team ?? ""] ?? null,
+  }));
 
   return NextResponse.json({ teams });
 }
+
