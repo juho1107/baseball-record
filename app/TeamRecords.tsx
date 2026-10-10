@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, CalendarDays, ChevronDown, Shield, Trophy, Users } from "lucide-react";
+import { Activity, CalendarDays, ChevronDown, Download, Shield, Trophy, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { combineStats, fromUniquePlay, type RecordStats, type UniquePlayRaw } from "./record-utils";
 
@@ -85,6 +85,29 @@ export default function TeamRecords() {
   });
   const game = latest.find((item) => item.team === team);
 
+  const downloadExcel = () => {
+    const headers = kind === "batting"
+      ? ["순위", "선수", "출처", "경기", "타수", "안타", "홈런", "타점", "타율", "OPS"]
+      : ["순위", "선수", "출처", "경기", "승", "패", "이닝", "탈삼진", "방어율", "WHIP"];
+    const rows = sorted.map((player, index) => {
+      const bat = player.stats.batting; const pit = player.stats.pitching;
+      const meetsRule = qualified(player.stats);
+      const rank = isRateSort && !meetsRule ? "-" : isRateSort ? sorted.slice(0, index + 1).filter((item) => qualified(item.stats)).length : index + 1;
+      const sourceNames = [...player.sources].map((item) => SOURCES.find((sourceItem) => sourceItem.id === item)?.label).filter(Boolean).join(" · ");
+      return kind === "batting"
+        ? [rank, player.name, sourceNames, bat?.games ?? 0, bat?.atBats ?? 0, bat?.hits ?? 0, bat?.homeRuns ?? 0, bat?.rbi ?? 0, number(bat?.average), number(bat?.ops)]
+        : [rank, player.name, sourceNames, pit?.games ?? 0, pit?.wins ?? 0, pit?.losses ?? 0, pit?.innings ?? "0", pit?.strikeouts ?? 0, number(pit?.era, 2), number(pit?.whip, 2)];
+    });
+    const csvCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+    const csv = `\uFEFF${[headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n")}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    const sourceLabel = SOURCES.find((item) => item.id === source)?.label ?? source;
+    anchor.href = url;
+    anchor.download = `${team}_${season === "career" ? "통산" : season}_${sourceLabel}_${kind === "batting" ? "타자" : "투수"}_기록.csv`;
+    document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+  };
+
   const changeTeam = (value: string) => { setTeam(value); setSeason("career"); setSource("combined"); };
   return <section className="team-records" id="teams">
     <div className="section-head"><div><span className="section-kicker">TEAM RECORDS</span><h2>팀별 기록</h2></div><div className="sync"><span /> 저장된 기록으로 계산<small>새로 수집하지 않고 스냅샷 사용</small></div></div>
@@ -103,7 +126,7 @@ export default function TeamRecords() {
 
     {game && <article className="team-latest-game"><div><span className="latest-label"><CalendarDays size={14} /> 최근 통합 경기</span><h3>{game.opponent}<small>{game.source}</small></h3></div><div className="latest-score"><strong>{game.teamScore}</strong><span className={`result-${game.result}`}>{game.result}</span><strong>{game.opponentScore}</strong></div><time>{new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "long", day: "numeric" }).format(new Date(game.gameDate))}</time></article>}
 
-    <div className="team-ranking-head"><div><h3>선수 기록 순위</h3><p>{source === "combined" ? "서비스별 기록을 합산한 값입니다." : `${SOURCES.find((item) => item.id === source)?.label} 기록입니다.`} · {kind === "batting" ? `규정 ${requiredPa}타석` : `규정 ${Math.floor(requiredOuts / 3)}이닝`}</p></div><div className="ranking-actions"><label><select value={kind === "batting" ? batSort : pitSort} onChange={(event) => kind === "batting" ? setBatSort(event.target.value as typeof batSort) : setPitSort(event.target.value as typeof pitSort)}>{kind === "batting" ? <><option value="average">타율순</option><option value="hits">안타순</option><option value="homeRuns">홈런순</option><option value="rbi">타점순</option><option value="ops">OPS순</option></> : <><option value="era">방어율순</option><option value="wins">승리순</option><option value="strikeouts">탈삼진순</option><option value="innings">이닝순</option><option value="whip">WHIP순</option></>}</select><ChevronDown size={13} /></label><div className="team-kind-toggle"><button className={kind === "batting" ? "active" : ""} onClick={() => setKind("batting")}>타자</button><button className={kind === "pitching" ? "active" : ""} onClick={() => setKind("pitching")}>투수</button></div></div></div>
+    <div className="team-ranking-head"><div><h3>선수 기록 순위</h3><p>{source === "combined" ? "서비스별 기록을 합산한 값입니다." : `${SOURCES.find((item) => item.id === source)?.label} 기록입니다.`} · {kind === "batting" ? `규정 ${requiredPa}타석` : `규정 ${Math.floor(requiredOuts / 3)}이닝`}</p></div><div className="ranking-actions"><label><select value={kind === "batting" ? batSort : pitSort} onChange={(event) => kind === "batting" ? setBatSort(event.target.value as typeof batSort) : setPitSort(event.target.value as typeof pitSort)}>{kind === "batting" ? <><option value="average">타율순</option><option value="hits">안타순</option><option value="homeRuns">홈런순</option><option value="rbi">타점순</option><option value="ops">OPS순</option></> : <><option value="era">방어율순</option><option value="wins">승리순</option><option value="strikeouts">탈삼진순</option><option value="innings">이닝순</option><option value="whip">WHIP순</option></>}</select><ChevronDown size={13} /></label><div className="team-kind-toggle"><button className={kind === "batting" ? "active" : ""} onClick={() => setKind("batting")}>타자</button><button className={kind === "pitching" ? "active" : ""} onClick={() => setKind("pitching")}>투수</button></div><button type="button" className="excel-download" onClick={downloadExcel} disabled={!sorted.length}><Download size={14} /> 엑셀 다운로드</button></div></div>
     <p className="mobile-table-hint">선수 이름은 고정됩니다 · 기록은 좌우로 밀어서 확인하세요</p>
     <div className="team-ranking-table"><table><thead><tr><th>순위</th><th>선수</th>{kind === "batting" ? <><th>경기</th><th>타수</th><th>안타</th><th>홈런</th><th>타점</th><th>타율</th><th>OPS</th></> : <><th>경기</th><th>승</th><th>패</th><th>이닝</th><th>탈삼진</th><th>방어율</th><th>WHIP</th></>}</tr></thead><tbody>{sorted.map((player, index) => {
       const bat = player.stats.batting; const pit = player.stats.pitching;
