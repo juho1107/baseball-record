@@ -119,8 +119,14 @@ export default function TeamDirectory() {
 
 function PlayerStats({ stats, kind }: { stats: RecordStats; kind: "batting" | "pitching" }) {
   const bat = stats.batting!; const pit = stats.pitching!;
+  const divide = (numerator: number, denominator: number) => denominator ? numerator / denominator : null;
+  const format = (value: number | null, digits = 3) => value == null || !Number.isFinite(value) ? "-" : value.toFixed(digits);
+  const plateAppearances = bat.atBats + (bat.walks ?? 0) + (bat.hitByPitch ?? 0) + (bat.sacrificeFlies ?? 0);
+  const obp = divide(bat.hits + (bat.walks ?? 0) + (bat.hitByPitch ?? 0), plateAppearances);
+  const slg = divide(bat.totalBases ?? 0, bat.atBats);
+  const pitchingOuts = pit.pitchingOuts ?? 0;
   const values: Array<[string, string | number]> = kind === "batting"
-    ? [["경기", bat.games], ["타수", bat.atBats], ["타율", bat.average.toFixed(3)], ["안타", bat.hits], ["홈런", bat.homeRuns ?? 0], ["타점", bat.rbi], ["OPS", bat.ops?.toFixed(3) ?? "-"]]
-    : [["경기", pit.games], ["승", pit.wins ?? 0], ["패", pit.losses ?? 0], ["이닝", pit.innings], ["방어율", pit.era?.toFixed(2) ?? "-"], ["탈삼진", pit.strikeouts ?? 0], ["WHIP", pit.whip?.toFixed(2) ?? "-"]];
+    ? [["경기", bat.games], ["타석", plateAppearances], ["타수", bat.atBats], ["안타", bat.hits], ["홈런", bat.homeRuns ?? 0], ["타점", bat.rbi], ["볼넷", bat.walks ?? 0], ["사구", bat.hitByPitch ?? 0], ["희생플라이", bat.sacrificeFlies ?? 0], ["총루타", bat.totalBases ?? 0], ["타율", format(bat.average)], ["출루율", format(obp)], ["장타율", format(slg)], ["OPS", format(bat.ops)], ["ISO", format(slg == null ? null : slg - bat.average)], ["경기당 안타", format(divide(bat.hits, bat.games), 2)], ["경기당 타점", format(divide(bat.rbi, bat.games), 2)], ["홈런당 타수", format(divide(bat.atBats, bat.homeRuns ?? 0), 1)]]
+    : [["경기", pit.games], ["승", pit.wins ?? 0], ["패", pit.losses ?? 0], ["이닝", pit.innings], ["탈삼진", pit.strikeouts ?? 0], ["피안타", pit.hitsAllowed ?? 0], ["볼넷", pit.walks ?? 0], ["자책점", pit.earnedRuns ?? 0], ["방어율", format(pit.era, 2)], ["WHIP", format(pit.whip, 2)], ["승률", format(divide(pit.wins ?? 0, (pit.wins ?? 0) + (pit.losses ?? 0)))], ["경기당 이닝", format(divide(pitchingOuts / 3, pit.games), 2)], ["K/7", format(divide((pit.strikeouts ?? 0) * 21, pitchingOuts), 2)], ["BB/7", format(divide((pit.walks ?? 0) * 21, pitchingOuts), 2)], ["H/7", format(divide((pit.hitsAllowed ?? 0) * 21, pitchingOuts), 2)], ["K/BB", format(divide(pit.strikeouts ?? 0, pit.walks ?? 0), 2)]];
   return <div className="detail-stats">{values.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>;
 }
