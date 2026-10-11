@@ -1,7 +1,7 @@
 "use client";
 
 import { Activity, ArrowDown, ArrowUp, CalendarDays, ChevronDown, Download, ListFilter, Shield, Trophy, Users } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { combineStats, fromUniquePlay, type RecordStats, type UniquePlayRaw } from "./record-utils";
 
 type Source = "combined" | "gameone" | "uniqueplay" | "yagoos" | "nicecatch";
@@ -63,6 +63,10 @@ export default function TeamRecords() {
   const [pitchingRuleEnabled, setPitchingRuleEnabled] = useState(false);
   const [requiredGames, setRequiredGames] = useState(1);
   const [requiredInnings, setRequiredInnings] = useState(1);
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const topScrollInnerRef = useRef<HTMLDivElement>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     Promise.all([
@@ -109,6 +113,18 @@ export default function TeamRecords() {
     return sortDirection === "asc" ? difference : -difference;
   });
   const game = latest.find((item) => item.team === team);
+
+  useEffect(() => {
+    const top = topScrollRef.current; const topInner = topScrollInnerRef.current; const tableScroll = tableScrollRef.current; const tableElement = tableRef.current;
+    if (!top || !topInner || !tableScroll || !tableElement) return;
+    let syncing = false;
+    const resize = () => { topInner.style.width = `${tableElement.scrollWidth}px`; };
+    const fromTop = () => { if (syncing) return; syncing = true; tableScroll.scrollLeft = top.scrollLeft; syncing = false; };
+    const fromTable = () => { if (syncing) return; syncing = true; top.scrollLeft = tableScroll.scrollLeft; syncing = false; };
+    const observer = new ResizeObserver(resize);
+    observer.observe(tableElement); resize(); top.addEventListener("scroll", fromTop); tableScroll.addEventListener("scroll", fromTable);
+    return () => { observer.disconnect(); top.removeEventListener("scroll", fromTop); tableScroll.removeEventListener("scroll", fromTable); };
+  }, []);
 
   const downloadExcel = () => {
     const headers = ["순위", "선수", "출처", ...activeColumns.map((column) => column.label)];
@@ -160,7 +176,8 @@ export default function TeamRecords() {
       <details className="column-picker"><summary><ListFilter size={14} /> 표시 항목 <b>{activeColumns.length}/{allColumns.length}</b></summary><div className="column-picker-menu"><div><button type="button" onClick={() => kind === "batting" ? setVisibleBatting(battingColumns.map((column) => column.id)) : setVisiblePitching(pitchingColumns.map((column) => column.id))}>전체 선택</button><button type="button" onClick={() => kind === "batting" ? setVisibleBatting([]) : setVisiblePitching([])}>전체 해제</button></div>{allColumns.map((column) => <label key={column.id}><input type="checkbox" checked={visibleIds.includes(column.id)} onChange={() => toggleColumn(column.id)} /> {column.label}</label>)}</div></details>
     </div>
     <p className="mobile-table-hint">선수 이름은 고정됩니다 · 기록은 좌우로 밀어서 확인하세요</p>
-    <div className="team-ranking-table"><table><thead><tr><th>순위</th><th>선수</th>{activeColumns.map((column) => <th key={column.id}>{column.label}</th>)}</tr></thead><tbody>{sorted.map((player, index) => {
+    <div className="team-ranking-scroll-top" ref={topScrollRef} aria-label="기록 표 가로 스크롤"><div ref={topScrollInnerRef} /></div>
+    <div className="team-ranking-table" ref={tableScrollRef}><table ref={tableRef}><thead><tr><th>순위</th><th>선수</th>{activeColumns.map((column) => <th key={column.id}>{column.label}</th>)}</tr></thead><tbody>{sorted.map((player, index) => {
       const meetsRule = qualified(player.stats); const rank = qualificationEnabled && !meetsRule ? null : qualificationEnabled ? sorted.slice(0, index + 1).filter((item) => qualified(item.stats)).length : index + 1;
       return <tr key={clean(player.name)} className={!meetsRule ? "unqualified" : ""}><td><span className={rank ? `rank top-${rank}` : "rank"}>{rank ?? "-"}</span></td><td><div className="team-player-name"><b>{player.name}{!meetsRule && <i>규정 미달</i>}</b><small>{[...player.sources].map((item) => SOURCES.find((sourceItem) => sourceItem.id === item)?.label).join(" · ")}</small></div></td>{activeColumns.map((column) => <td key={column.id}>{column.display ? column.display(player.stats) : column.value(player.stats) ?? "-"}</td>)}</tr>;
     })}</tbody></table>{!sorted.length && <p className="directory-empty">선택한 조건의 기록이 없습니다.</p>}</div>
