@@ -19,14 +19,14 @@ const number = (value: number | null | undefined, digits = 3) => value == null |
 type StatColumn = { id: string; label: string; value: (stats: RecordStats) => number | null; display?: (stats: RecordStats) => string | number };
 const divide = (numerator: number, denominator: number) => denominator ? numerator / denominator : null;
 const battingColumns: StatColumn[] = [
-  { id: "strikeouts", label: "삼진", value: (s) => s.batting?.strikeouts ?? null, display: (s) => s.batting?.strikeouts ?? "미수집" },
-  { id: "stolenBases", label: "도루", value: (s) => s.batting?.stolenBases ?? null, display: (s) => s.batting?.stolenBases ?? "미수집" },
   { id: "games", label: "경기", value: (s) => s.batting?.games ?? 0 },
   { id: "plateAppearances", label: "타석", value: (s) => (s.batting?.atBats ?? 0) + (s.batting?.walks ?? 0) + (s.batting?.hitByPitch ?? 0) + (s.batting?.sacrificeFlies ?? 0) },
   { id: "atBats", label: "타수", value: (s) => s.batting?.atBats ?? 0 }, { id: "hits", label: "안타", value: (s) => s.batting?.hits ?? 0 },
   { id: "homeRuns", label: "홈런", value: (s) => s.batting?.homeRuns ?? 0 }, { id: "rbi", label: "타점", value: (s) => s.batting?.rbi ?? 0 },
   { id: "walks", label: "볼넷", value: (s) => s.batting?.walks ?? 0 }, { id: "hitByPitch", label: "사구", value: (s) => s.batting?.hitByPitch ?? 0 },
   { id: "sacrificeFlies", label: "희생플라이", value: (s) => s.batting?.sacrificeFlies ?? 0 }, { id: "totalBases", label: "총루타", value: (s) => s.batting?.totalBases ?? 0 },
+  { id: "strikeouts", label: "삼진", value: (s) => s.batting?.strikeouts ?? null, display: (s) => s.batting?.strikeouts ?? "미수집" },
+  { id: "stolenBases", label: "도루", value: (s) => s.batting?.stolenBases ?? null, display: (s) => s.batting?.stolenBases ?? "미수집" },
   { id: "average", label: "타율", value: (s) => s.batting?.average ?? null, display: (s) => number(s.batting?.average) },
   { id: "obp", label: "출루율", value: (s) => { const b=s.batting!; return divide(b.hits+(b.walks??0)+(b.hitByPitch??0),b.atBats+(b.walks??0)+(b.hitByPitch??0)+(b.sacrificeFlies??0)); }, display: (s) => number(battingColumns.find((c) => c.id === "obp")!.value(s)) },
   { id: "slg", label: "장타율", value: (s) => divide(s.batting?.totalBases ?? 0,s.batting?.atBats ?? 0), display: (s) => number(battingColumns.find((c) => c.id === "slg")!.value(s)) },
