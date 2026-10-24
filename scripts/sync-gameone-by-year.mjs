@@ -36,6 +36,9 @@ function combineStats(values) {
   const era = pitching.pitchingOuts ? pitching.earnedRuns * 21 / pitching.pitchingOuts : null;
   const whip = pitching.pitchingOuts ? (pitching.hitsAllowed + pitching.walks) * 3 / pitching.pitchingOuts : null;
   const battingRecord = { ...batting, average, ops };
+  for (const key of ["strikeouts", "stolenBases"]) {
+    battingRecord[key] = values.some((stats) => stats.batting?.games > 0 && stats.batting[key] == null) ? null : values.reduce((sum, stats) => sum + (stats.batting?.[key] ?? 0), 0);
+  }
   const pitchingRecord = { ...pitching, innings: outsToInnings(pitching.pitchingOuts), era, whip };
   return { games: Math.max(batting.games, pitching.games), average, hits: batting.hits, homeRuns: batting.homeRuns, rbi: batting.rbi, ops, era, batting: battingRecord, pitching: pitchingRecord };
 }

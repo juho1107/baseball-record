@@ -1,6 +1,7 @@
 export type BattingRecord = {
   games: number; atBats: number; average: number; hits: number; homeRuns: number | null; rbi: number; ops: number | null;
   totalBases?: number; walks?: number; hitByPitch?: number; sacrificeFlies?: number;
+  strikeouts?: number | null; stolenBases?: number | null;
 };
 
 export type PitchingRecord = {
@@ -16,6 +17,21 @@ export type RecordStats = {
 export type UniquePlayRaw = Record<string, string | number | null | undefined>;
 
 const numeric = (value: unknown) => Number(value) || 0;
+
+export function canonicalPlayerName(value: string) {
+  const name = value.trim();
+  return name.replace(/\s/g, "") === "구정필(마스터)" ? "구정필" : name;
+}
+
+export const playerKey = (value: string) => canonicalPlayerName(value).replace(/\s+/g, "").toLowerCase();
+
+const optionalCount = (value: unknown): number | null => value == null || String(value).trim() === "" || !Number.isFinite(Number(value)) ? null : Number(value);
+
+function sumBattingCount(values: BattingRecord[], key: "strikeouts" | "stolenBases") {
+  // Never present a partial total as a complete career/team total.
+  if (values.some((value) => value.games > 0 && value[key] == null)) return null;
+  return values.reduce((sum, value) => sum + (value[key] ?? 0), 0);
+}
 
 export function inningsToOuts(value: unknown) {
   const [whole, fraction = "0"] = String(value ?? 0).split(".");
@@ -42,7 +58,7 @@ export function fromUniquePlay(raw: UniquePlayRaw = {}): RecordStats {
   const earnedRuns = numeric(raw.er);
   const era = pitchingOuts ? earnedRuns * 21 / pitchingOuts : null;
   const whip = pitchingOuts ? (hitsAllowed + pitchingWalks) * 3 / pitchingOuts : null;
-  const batting: BattingRecord = { games: numeric(raw.hgame), atBats, average, hits, homeRuns: numeric(raw.hr), rbi: numeric(raw.rbi), ops, totalBases, walks, hitByPitch, sacrificeFlies };
+  const batting: BattingRecord = { games: numeric(raw.hgame), atBats, average, hits, homeRuns: numeric(raw.hr), rbi: numeric(raw.rbi), ops, totalBases, walks, hitByPitch, sacrificeFlies, strikeouts: optionalCount(raw.hso), stolenBases: optionalCount(raw.sb) };
   const pitching: PitchingRecord = { games: numeric(raw.pgame), era, wins: numeric(raw.win), losses: numeric(raw.lose), innings: outsToInnings(pitchingOuts), strikeouts: numeric(raw.so), whip, pitchingOuts, hitsAllowed, walks: pitchingWalks, earnedRuns };
   return { games: Math.max(batting.games, pitching.games), average, hits, homeRuns: batting.homeRuns, rbi: batting.rbi, ops, era, batting, pitching };
 }
@@ -70,7 +86,7 @@ export function combineStats(values: Array<RecordStats | undefined>): RecordStat
   }), { games: 0, wins: 0, losses: 0, pitchingOuts: 0, hitsAllowed: 0, walks: 0, strikeouts: 0, earnedRuns: 0 });
   const era = pitchingRaw.pitchingOuts ? pitchingRaw.earnedRuns * 21 / pitchingRaw.pitchingOuts : null;
   const whip = pitchingRaw.pitchingOuts ? (pitchingRaw.hitsAllowed + pitchingRaw.walks) * 3 / pitchingRaw.pitchingOuts : null;
-  const batting: BattingRecord = { ...battingRaw, average, ops };
+  const batting: BattingRecord = { ...battingRaw, average, ops, strikeouts: sumBattingCount(battingValues, "strikeouts"), stolenBases: sumBattingCount(battingValues, "stolenBases") };
   const pitching: PitchingRecord = { ...pitchingRaw, era, innings: outsToInnings(pitchingRaw.pitchingOuts), whip };
   return { games: Math.max(batting.games, pitching.games), average, hits: batting.hits, homeRuns: batting.homeRuns, rbi: batting.rbi, ops, era, batting, pitching };
 }

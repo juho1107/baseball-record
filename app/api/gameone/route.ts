@@ -31,7 +31,7 @@ type PublicStats = {
   pitchingOuts: number; earnedRuns: number;
   batting: BattingStats; pitching: PitchingStats;
 };
-type BattingStats = { games: number; atBats: number; average: number; hits: number; homeRuns: number | null; rbi: number; ops: number | null; totalBases: number; walks: number; hitByPitch: number; sacrificeFlies: number };
+type BattingStats = { games: number; atBats: number; average: number; hits: number; homeRuns: number | null; rbi: number; ops: number | null; totalBases: number; walks: number; hitByPitch: number; sacrificeFlies: number; strikeouts?: number | null; stolenBases?: number | null };
 type PitchingStats = { games: number; era: number | null; wins: number | null; losses: number | null; saves: number | null; holds: number | null; innings: string; pitchingOuts: number; hitsAllowed: number; walks: number | null; strikeouts: number | null; earnedRuns: number; whip: number | null };
 type TeamStats = { games: number; average: number; hits: number; homeRuns: number | null; rbi: number; ops: number | null; era: number | null; atBats: number; batting: BattingStats; pitching: PitchingStats };
 type GameRef = { gameId: string; leagueId: string; season: number; clubId: string; teamName: string };
@@ -56,6 +56,7 @@ function parsePublicStats(html: string): PublicStats {
     games: numberOf(batting["경기수"]), atBats: numberOf(batting["타수"]), average: numberOf(batting["타율"]),
     hits: numberOf(batting["총안타"]), homeRuns: numberOf(batting["홈런"]), rbi: numberOf(batting["타점"]), ops: numberOf(batting["OPS"]),
     totalBases: numberOf(batting["루타"]), walks: numberOf(batting["볼넷"]), hitByPitch: numberOf(batting["사구"]), sacrificeFlies: numberOf(batting["희비"]),
+    strikeouts: batting["삼진"] == null ? null : numberOf(batting["삼진"]), stolenBases: batting["도루"] == null ? null : numberOf(batting["도루"]),
   };
   const pitchingOuts = inningsToOuts(pitching["이닝"]);
   const pitchingGames = numberOf(pitching["경기수"]);
@@ -103,6 +104,9 @@ function careerStats(seasons: Array<{ stats: PublicStats }>): PublicStats {
     strikeouts: seasons.reduce((total, season) => total + (season.stats.pitching.strikeouts ?? 0), 0), earnedRuns: sum.earnedRuns,
     whip: sum.pitchingOuts ? (totalHitsAllowed + totalPitchingWalks) * 3 / sum.pitchingOuts : null,
   };
+  for (const key of ["strikeouts", "stolenBases"] as const) {
+    batting[key] = seasons.some((season) => season.stats.batting.games > 0 && season.stats.batting[key] == null) ? null : seasons.reduce((total, season) => total + (season.stats.batting[key] ?? 0), 0);
+  }
   return { ...sum, average, ops: onBase + slugging, era: weightedEra, batting, pitching };
 }
 
@@ -207,6 +211,9 @@ function aggregateGames(games: GameRecord[]): TeamStats {
   }, { pitchingOuts: 0, hitsAllowed: 0, walks: 0, strikeouts: 0, earnedRuns: 0, wins: 0, losses: 0, saves: 0, holds: 0 });
   const batting: BattingStats = { games: battingGames.length, atBats: battingRaw.atBats, average, hits: battingRaw.hits, homeRuns: battingRaw.homeRuns, rbi: battingRaw.rbi, ops: onBase + slugging, totalBases, walks: battingRaw.walks, hitByPitch: battingRaw.hitByPitch, sacrificeFlies: battingRaw.sacrificeFlies };
   const pitching: PitchingStats = { games: pitchingGames.length, era: pitchingRaw.pitchingOuts ? pitchingRaw.earnedRuns * 21 / pitchingRaw.pitchingOuts : null, wins: pitchingRaw.wins, losses: pitchingRaw.losses, saves: pitchingRaw.saves, holds: pitchingRaw.holds, innings: outsToInnings(pitchingRaw.pitchingOuts), pitchingOuts: pitchingRaw.pitchingOuts, hitsAllowed: pitchingRaw.hitsAllowed, walks: pitchingRaw.walks, strikeouts: pitchingRaw.strikeouts, earnedRuns: pitchingRaw.earnedRuns, whip: pitchingRaw.pitchingOuts ? (pitchingRaw.hitsAllowed + pitchingRaw.walks) * 3 / pitchingRaw.pitchingOuts : null };
+  for (const key of ["strikeouts", "stolenBases"] as const) {
+    batting[key] = battingGames.some((game) => game.batting![key] == null) ? null : battingGames.reduce((sum, game) => sum + game.batting![key], 0);
+  }
   return { games: new Set(games.map((game) => game.gameId)).size, average, hits: battingRaw.hits, homeRuns: battingRaw.homeRuns, rbi: battingRaw.rbi, ops: onBase + slugging, era: pitching.era, atBats: battingRaw.atBats, batting, pitching };
 }
 

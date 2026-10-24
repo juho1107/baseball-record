@@ -2,7 +2,7 @@
 
 import { Activity, ArrowDown, ArrowUp, CalendarDays, ChevronDown, Download, ListFilter, Shield, Trophy, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { combineStats, fromUniquePlay, type RecordStats, type UniquePlayRaw } from "./record-utils";
+import { combineStats, fromUniquePlay, canonicalPlayerName, playerKey, type RecordStats, type UniquePlayRaw } from "./record-utils";
 
 type Source = "combined" | "gameone" | "uniqueplay" | "yagoos" | "nicecatch";
 type Entry = { name: string; source: Exclude<Source, "combined">; season: number; stats: RecordStats };
@@ -14,11 +14,13 @@ const SOURCES: Array<{ id: Source; label: string }> = [
   { id: "combined", label: "통합" }, { id: "gameone", label: "게임원" },
   { id: "uniqueplay", label: "유니크플레이" }, { id: "yagoos", label: "야구스" }, { id: "nicecatch", label: "나이스캐치" },
 ];
-const clean = (value: string) => value.replace(/\s+/g, "").toLowerCase();
+const clean = playerKey;
 const number = (value: number | null | undefined, digits = 3) => value == null || !Number.isFinite(value) ? "-" : value.toFixed(digits);
 type StatColumn = { id: string; label: string; value: (stats: RecordStats) => number | null; display?: (stats: RecordStats) => string | number };
 const divide = (numerator: number, denominator: number) => denominator ? numerator / denominator : null;
 const battingColumns: StatColumn[] = [
+  { id: "strikeouts", label: "삼진", value: (s) => s.batting?.strikeouts ?? null, display: (s) => s.batting?.strikeouts ?? "미수집" },
+  { id: "stolenBases", label: "도루", value: (s) => s.batting?.stolenBases ?? null, display: (s) => s.batting?.stolenBases ?? "미수집" },
   { id: "games", label: "경기", value: (s) => s.batting?.games ?? 0 },
   { id: "plateAppearances", label: "타석", value: (s) => (s.batting?.atBats ?? 0) + (s.batting?.walks ?? 0) + (s.batting?.hitByPitch ?? 0) + (s.batting?.sacrificeFlies ?? 0) },
   { id: "atBats", label: "타수", value: (s) => s.batting?.atBats ?? 0 }, { id: "hits", label: "안타", value: (s) => s.batting?.hits ?? 0 },
@@ -82,7 +84,7 @@ export default function TeamRecords() {
     ]).then(([gameone, uniqueplay, yagoos, nicecatch, sync]) => {
       const next: Record<string, Entry[]> = { 썬볼: [], 레드포니즈: [] };
       const add = (teamName: string, name: string, sourceName: Entry["source"], year: number, stats?: RecordStats) => {
-        if (next[teamName] && stats) next[teamName].push({ name: name.trim(), source: sourceName, season: year, stats });
+        if (next[teamName] && stats) next[teamName].push({ name: canonicalPlayerName(name), source: sourceName, season: year, stats });
       };
       (gameone.players ?? []).forEach((player: GameOnePlayer) => player.record?.teams?.forEach((item) => item.seasons.forEach((record) => add(item.name, player.name, "gameone", record.season, record.stats))));
       const collect = (teams: SourceTeam[] = [], sourceName: Entry["source"], unique = false) => teams.forEach((item) => item.players?.forEach((player) => player.seasonRecords?.forEach((record) => add(item.name, player.name, sourceName, record.season, unique ? fromUniquePlay(record.records) : record.stats))));
@@ -174,6 +176,8 @@ export default function TeamRecords() {
       <Summary icon={<Activity />} label="팀 타율" value={number(teamStats?.batting?.average)} />
       <Summary icon={<Trophy />} label="팀 OPS" value={number(teamStats?.batting?.ops)} />
       <Summary icon={<Shield />} label="팀 방어율" value={number(teamStats?.pitching?.era, 2)} />
+      <Summary icon={<Activity />} label="팀 타자 삼진" value={teamStats?.batting?.strikeouts ?? "미수집"} />
+      <Summary icon={<Activity />} label="팀 도루" value={teamStats?.batting?.stolenBases ?? "미수집"} />
     </div>
 
     {game && <article className="team-latest-game"><div><span className="latest-label"><CalendarDays size={14} /> 최근 통합 경기</span><h3>{game.opponent}<small>{game.source}</small></h3></div><div className="latest-score"><strong>{game.teamScore}</strong><span className={`result-${game.result}`}>{game.result}</span><strong>{game.opponentScore}</strong></div><time>{new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "long", day: "numeric" }).format(new Date(game.gameDate))}</time></article>}

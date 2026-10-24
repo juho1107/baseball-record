@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { combineStats, fromUniquePlay, type RecordStats, type UniquePlayRaw } from "./record-utils";
+import { combineStats, fromUniquePlay, canonicalPlayerName, playerKey, type RecordStats, type UniquePlayRaw } from "./record-utils";
 
 type Source = "combined" | "gameone" | "uniqueplay" | "yagoos" | "nicecatch";
 type TeamRecord = { name: string; career: RecordStats; seasons: Array<{ season: number; stats: RecordStats }> };
@@ -15,7 +15,7 @@ type NicecatchPlayer = { name: string; seasonRecords?: Array<{ season: number; s
 type NicecatchTeam = { name: string; players: NicecatchPlayer[] };
 type Person = { name: string; teams: string[]; sources: Set<Exclude<Source, "combined">> };
 
-const clean = (value: string) => value.replace(/\s+/g, "").toLowerCase();
+const clean = playerKey;
 const SOURCE_LABEL: Record<Source, string> = { combined: "통합", gameone: "게임원", uniqueplay: "유니크플레이", yagoos: "야구스", nicecatch: "나이스캐치" };
 
 export default function TeamDirectory() {
@@ -49,7 +49,7 @@ export default function TeamDirectory() {
     const map = new Map<string, Person>();
     const add = (name: string, teamName: string, sourceName: Exclude<Source, "combined">) => {
       const key = clean(name);
-      const person = map.get(key) ?? { name: name.trim(), teams: [], sources: new Set<Exclude<Source, "combined">>() };
+      const person = map.get(key) ?? { name: canonicalPlayerName(name), teams: [], sources: new Set<Exclude<Source, "combined">>() };
       if (!person.teams.includes(teamName)) person.teams.push(teamName);
       person.sources.add(sourceName);
       map.set(key, person);
@@ -68,33 +68,30 @@ export default function TeamDirectory() {
   const selectedYagoos = selected ? yagoos.teams.filter((teamData) => teamData.players.some((player) => clean(player.name) === clean(selected.name))) : [];
   const selectedNicecatch = selected ? nicecatch.teams.filter((teamData) => teamData.players.some((player) => clean(player.name) === clean(selected.name))) : [];
 
-  const gameStats = selected ? combineStats(selectedGameOne.map((player) => {
-    if (team === "all") return season === "career" ? (player.record.career ?? player.record.stats) : player.record.seasons?.find((item) => String(item.season) === season)?.stats;
-    const selectedTeam = player.record.teams?.find((item) => item.name === team);
-    return season === "career" ? selectedTeam?.career : selectedTeam?.seasons.find((item) => String(item.season) === season)?.stats;
-  })) : undefined;
+  const gameStats = selected ? combineStats(selectedGameOne.flatMap((player) =>
+    (player.record.teams ?? []).filter((item) => team === "all" || item.name === team)
+      .flatMap((item) => item.seasons.filter((row) => season === "career" || String(row.season) === season).map((row) => row.stats))
+  )) : undefined;
 
   const uniqueStats = selected ? combineStats(selectedUnique.filter((item) => team === "all" || item.name === team).flatMap((teamData) => {
-    const records = teamData.players.find((player) => clean(player.name) === clean(selected.name))?.seasonRecords ?? [];
+    const records = teamData.players.filter((player) => clean(player.name) === clean(selected.name)).flatMap((player) => player.seasonRecords ?? []);
     return (season === "career" ? records : records.filter((item) => String(item.season) === season)).map((item) => fromUniquePlay(item.records));
   })) : undefined;
 
   const yagoosStats = selected ? combineStats(selectedYagoos.filter((item) => team === "all" || item.name === team).flatMap((teamData) => {
-    const records = teamData.players.find((player) => clean(player.name) === clean(selected.name))?.seasonRecords ?? [];
+    const records = teamData.players.filter((player) => clean(player.name) === clean(selected.name)).flatMap((player) => player.seasonRecords ?? []);
     return (season === "career" ? records : records.filter((item) => String(item.season) === season)).map((item) => item.stats);
   })) : undefined;
 
   const nicecatchStats = selected ? combineStats(selectedNicecatch.filter((item) => team === "all" || item.name === team).flatMap((teamData) => {
-    const records = teamData.players.find((player) => clean(player.name) === clean(selected.name))?.seasonRecords ?? [];
+    const records = teamData.players.filter((player) => clean(player.name) === clean(selected.name)).flatMap((player) => player.seasonRecords ?? []);
     return (season === "career" ? records : records.filter((item) => String(item.season) === season)).map((item) => item.stats);
   })) : undefined;
 
   const stats = source === "gameone" ? gameStats : source === "uniqueplay" ? uniqueStats : source === "yagoos" ? yagoosStats : source === "nicecatch" ? nicecatchStats : combineStats([gameStats, uniqueStats, yagoosStats, nicecatchStats]);
   const seasons = selected ? [...new Set([
     ...selectedGameOne.flatMap((player) => team === "all" ? player.record.seasons?.map((item) => item.season) ?? [] : player.record.teams?.filter((item) => item.name === team).flatMap((item) => item.seasons.map((record) => record.season)) ?? []),
-    ...selectedUnique.filter((item) => team === "all" || item.name === team).flatMap((teamData) => teamData.players.find((player) => clean(player.name) === clean(selected.name))?.seasonRecords?.map((item) => item.season) ?? []),
-    ...selectedYagoos.filter((item) => team === "all" || item.name === team).flatMap((teamData) => teamData.players.find((player) => clean(player.name) === clean(selected.name))?.seasonRecords?.map((item) => item.season) ?? []),
-    ...selectedNicecatch.filter((item) => team === "all" || item.name === team).flatMap((teamData) => teamData.players.find((player) => clean(player.name) === clean(selected.name))?.seasonRecords?.map((item) => item.season) ?? []),
+    ...[...selectedUnique, ...selectedYagoos, ...selectedNicecatch].filter((item) => team === "all" || item.name === team).flatMap((teamData) => teamData.players.filter((player) => clean(player.name) === clean(selected.name)).flatMap((player) => player.seasonRecords?.map((item) => item.season) ?? [])),
   ])].sort((a, b) => b - a) : [];
 
   function choose(person: Person) {
@@ -128,5 +125,6 @@ function PlayerStats({ stats, kind }: { stats: RecordStats; kind: "batting" | "p
   const values: Array<[string, string | number]> = kind === "batting"
     ? [["경기", bat.games], ["타석", plateAppearances], ["타수", bat.atBats], ["안타", bat.hits], ["홈런", bat.homeRuns ?? 0], ["타점", bat.rbi], ["볼넷", bat.walks ?? 0], ["사구", bat.hitByPitch ?? 0], ["희생플라이", bat.sacrificeFlies ?? 0], ["총루타", bat.totalBases ?? 0], ["타율", format(bat.average)], ["출루율", format(obp)], ["장타율", format(slg)], ["OPS", format(bat.ops)], ["ISO", format(slg == null ? null : slg - bat.average)], ["경기당 안타", format(divide(bat.hits, bat.games), 2)], ["경기당 타점", format(divide(bat.rbi, bat.games), 2)], ["홈런당 타수", format(divide(bat.atBats, bat.homeRuns ?? 0), 1)]]
     : [["경기", pit.games], ["승", pit.wins ?? 0], ["패", pit.losses ?? 0], ["이닝", pit.innings], ["탈삼진", pit.strikeouts ?? 0], ["피안타", pit.hitsAllowed ?? 0], ["볼넷", pit.walks ?? 0], ["자책점", pit.earnedRuns ?? 0], ["방어율", format(pit.era, 2)], ["WHIP", format(pit.whip, 2)], ["승률", format(divide(pit.wins ?? 0, (pit.wins ?? 0) + (pit.losses ?? 0)))], ["경기당 이닝", format(divide(pitchingOuts / 3, pit.games), 2)], ["K/7", format(divide((pit.strikeouts ?? 0) * 21, pitchingOuts), 2)], ["BB/7", format(divide((pit.walks ?? 0) * 21, pitchingOuts), 2)], ["H/7", format(divide((pit.hitsAllowed ?? 0) * 21, pitchingOuts), 2)], ["K/BB", format(divide(pit.strikeouts ?? 0, pit.walks ?? 0), 2)]];
+  if (kind === "batting") values.splice(6, 0, ["삼진", bat.strikeouts ?? "미수집"], ["도루", bat.stolenBases ?? "미수집"]);
   return <div className="detail-stats">{values.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>;
 }

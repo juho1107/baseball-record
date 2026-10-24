@@ -22,6 +22,7 @@ function batting(row) {
     games: numeric(row.game_cnt), atBats: numeric(row.bat_ab), average: numeric(row.bat_avg), hits: numeric(row.bat_hits),
     homeRuns: numeric(row.bat_hr), rbi: numeric(row.bat_rbi), ops: numeric(row.bat_ops), totalBases: numeric(row.bat_tbase),
     walks: numeric(row.bat_bb), hitByPitch: numeric(row.bat_hbp), sacrificeFlies: numeric(row.bat_sf),
+    strikeouts: row.bat_so == null ? null : numeric(row.bat_so), stolenBases: row.bat_sb == null ? null : numeric(row.bat_sb),
   };
 }
 
@@ -48,7 +49,8 @@ function mergeRows(values, type) {
     const average = raw.atBats ? raw.hits / raw.atBats : 0;
     const denominator = raw.atBats + raw.walks + raw.hitByPitch + raw.sacrificeFlies;
     const ops = raw.atBats || denominator ? raw.totalBases / Math.max(raw.atBats, 1) + (raw.hits + raw.walks + raw.hitByPitch) / Math.max(denominator, 1) : 0;
-    return { ...raw, average, ops };
+    const count = (key) => values.some((value) => batting(value)[key] == null) ? null : values.reduce((sum, value) => sum + batting(value)[key], 0);
+    return { ...raw, average, ops, strikeouts: count("strikeouts"), stolenBases: count("stolenBases") };
   }
   const raw = values.reduce((sum, value) => {
     const row = pitching(value);
@@ -80,7 +82,8 @@ for (const seasonInfo of seasons) {
     ]);
     const batters = new Map([...qualifiedBatters, ...otherBatters].filter((row) => row.team_id === TEAM_ID).map((row) => [row.player_id, row]));
     const pitchers = new Map([...qualifiedPitchers, ...otherPitchers].filter((row) => row.team_id === TEAM_ID).map((row) => [row.player_id, row]));
-    for (const [id, row] of [...batters, ...pitchers]) {
+    for (const id of new Set([...batters.keys(), ...pitchers.keys()])) {
+      const row = batters.get(id) ?? pitchers.get(id);
       const item = seasonPlayers.get(id) ?? { id, name: row.player_name.trim(), battingRows: [], pitchingRows: [] };
       if (batters.has(id)) item.battingRows.push(batters.get(id));
       if (pitchers.has(id)) item.pitchingRows.push(pitchers.get(id));

@@ -82,6 +82,7 @@ for (const season of seasons.sort((a, b) => a - b)) {
       games: number(cells[3]), atBats, average: nullable(cells[4]) ?? (atBats ? hits / atBats : 0), hits,
       homeRuns: number(cells[11]), rbi: number(cells[13]), ops: nullable(cells[17]), totalBases: number(cells[12]),
       walks: number(cells[23]), hitByPitch: number(cells[24]), sacrificeFlies: number(cells[28]),
+      strikeouts: nullable(cells[26]), stolenBases: nullable(cells[20]),
     };
     seasonMap.set(name, { batting });
   }
